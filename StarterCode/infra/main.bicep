@@ -1,4 +1,5 @@
 // infra/main.bicep
+// Kuvaus: TodoApp Azure-infrastruktuurin päätemplate
 targetScope = 'subscription'
 
 // ─── PARAMETRIT ───
@@ -11,7 +12,7 @@ param appName string
 param environment string = 'dev'
 
 @description('Azure-sijainti')
-param location string = 'swedencentral'
+param location string = 'northeurope'
 
 @secure()
 @description('PostgreSQL-ylläpitäjän salasana')
@@ -29,14 +30,14 @@ var tags = {
 
 // ─── RESURSSIT ───
 
-// Resource Group
+// 1. Resource Group
 resource rg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
   name: resourceGroupName
   location: location
   tags: tags
 }
 
-// PostgreSQL Flexible Server
+// 2. PostgreSQL Flexible Server
 module postgresql 'modules/postgresql.bicep' = {
   name: 'postgresqlDeployment'
   scope: rg
@@ -48,9 +49,21 @@ module postgresql 'modules/postgresql.bicep' = {
   }
 }
 
+// 3. App Service (Web App, .NET 8 natiivi)
+module appService 'modules/appservice.bicep' = {
+  name: 'appServiceDeployment'
+  scope: rg
+  params: {
+    location: location
+    environment: environment
+    appName: appName
+    databaseConnectionString: postgresql.outputs.connectionString
+  }
+}
+
 // ─── TULOSTEET ───
 
 output resourceGroupName string = rg.name
-output postgresServerName string = postgresql.outputs.serverName
 output postgresServerFqdn string = postgresql.outputs.serverFqdn
-output postgresConnectionString string = postgresql.outputs.connectionString
+output webAppName string = appService.outputs.webAppName
+output webAppUrl string = appService.outputs.webAppUrl
